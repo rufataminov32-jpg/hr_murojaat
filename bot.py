@@ -70,22 +70,32 @@ async def xabar_qabul(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = f"@{foydalanuvchi.username}" if foydalanuvchi.username else "username yo'q"
     user_id = foydalanuvchi.id
 
-    # HR ga sarlavha yuborish
+    # Sarlavha + xabarni birlashtirish
     sarlavha = (
         f"📬 *Yangi murojaat!*\n\n"
         f"👤 Ism: {ism}\n"
         f"🔗 Username: {username}\n"
         f"🆔 ID: `{user_id}`\n"
         f"📌 Mavzu: {mavzu}\n\n"
-        f"💬 *Xabar:*"
+        f"💬 *Xabar:*\n"
     )
-    await context.bot.send_message(
-        chat_id=HR_ID,
-        text=sarlavha,
-        parse_mode="Markdown",
-    )
-    # Xabarni bo'lib yuborish
-    await xabar_yuborish(context.bot, HR_ID, matn)
+    to'liq_xabar = sarlavha + matn
+
+    if len(to'liq_xabar) <= 4096:
+        # Qisqa bo'lsa bitta xabarda yuborish
+        await context.bot.send_message(
+            chat_id=HR_ID,
+            text=to'liq_xabar,
+            parse_mode="Markdown",
+        )
+    else:
+        # Uzun bo'lsa: sarlavha + xabarni bo'lib yuborish
+        await context.bot.send_message(
+            chat_id=HR_ID,
+            text=sarlavha,
+            parse_mode="Markdown",
+        )
+        await xabar_yuborish(context.bot, HR_ID, matn)
 
     context.user_data.clear()
     logger.info("Yangi murojaat: %s (%s) — %s", ism, user_id, mavzu)
