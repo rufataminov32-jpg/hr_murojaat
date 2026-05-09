@@ -79,13 +79,13 @@ async def xabar_qabul(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📌 Mavzu: {mavzu}\n\n"
         f"💬 *Xabar:*\n"
     )
-    to'liq_xabar = sarlavha + matn
+    toliq_xabar = sarlavha + matn
 
-    if len(to'liq_xabar) <= 4096:
+    if len(toliq_xabar) <= 4096:
         # Qisqa bo'lsa bitta xabarda yuborish
         await context.bot.send_message(
             chat_id=HR_ID,
-            text=to'liq_xabar,
+            text=toliq_xabar,
             parse_mode="Markdown",
         )
     else:
