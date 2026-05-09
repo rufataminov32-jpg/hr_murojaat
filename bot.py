@@ -53,7 +53,7 @@ async def xabar_qabul(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Faqat mavzu tanlagan foydalanuvchilar uchun
     if not context.user_data.get("kutilmoqda"):
         await update.message.reply_text(
-            "Murojaat qilish uchun mavzuni tanlang:",
+            "⚠️ Iltimos, avval mavzuni tanlang 👇",
             reply_markup=mavzu_keyboard(),
         )
         return
