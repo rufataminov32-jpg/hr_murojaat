@@ -3,21 +3,17 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
-    MessageHandler, ConversationHandler, ContextTypes, filters,
+    MessageHandler, ContextTypes, filters,
 )
 
-# ─── SOZLAMALAR ──────────────────────────────────────────────────────────────
-
-TOKEN   = os.environ["BOT_TOKEN"]
-HR_ID   = int(os.environ["HR_ID"])
+TOKEN = os.environ["BOT_TOKEN"]
+HR_ID = int(os.environ["HR_ID"])
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
-
-MAVZU, XABAR = range(2)
 
 MAVZULAR = {
     "ish_haqi":  "💰 Ish haqi masalalari",
@@ -26,17 +22,11 @@ MAVZULAR = {
     "boshqa":    "💬 Boshqa",
 }
 
-
-# ─── YORDAMCHI ───────────────────────────────────────────────────────────────
-
 def mavzu_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(nom, callback_data=kalit)]
+        [InlineKeyboardButton(nom, callback_data=f"mavzu_{kalit}")]
         for kalit, nom in MAVZULAR.items()
     ])
-
-
-# ─── FOYDALANUVCHI ───────────────────────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -44,31 +34,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Salom! 👋\n\nHR bo'limiga murojaat qilish uchun mavzuni tanlang:",
         reply_markup=mavzu_keyboard(),
     )
-    return MAVZU
-
 
 async def mavzu_tanlandi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    kalit = query.data
+    kalit = query.data.replace("mavzu_", "")
     if kalit not in MAVZULAR:
-        return MAVZU
+        return
     context.user_data["mavzu"] = MAVZULAR[kalit]
+    context.user_data["kutilmoqda"] = True
     await query.edit_message_text(
         f"Mavzu: *{MAVZULAR[kalit]}*\n\n"
-        f"Murojaatingizni yozing. Xabaringiz HR bo'limiga yuboriladi. ✍️\n\n"
-        f"/bekor — bekor qilish",
+        f"Murojaatingizni yozing. Xabaringiz HR bo'limiga yuboriladi. ✍️",
         parse_mode="Markdown",
     )
-    return XABAR
-
 
 async def xabar_qabul(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Faqat mavzu tanlagan foydalanuvchilar uchun
+    if not context.user_data.get("kutilmoqda"):
+        await update.message.reply_text(
+            "Murojaat qilish uchun mavzuni tanlang:",
+            reply_markup=mavzu_keyboard(),
+        )
+        return
+
     foydalanuvchi = update.effective_user
     mavzu = context.user_data.get("mavzu", "Noma'lum")
     matn = update.message.text
 
-    # HR ga xabar yuborish
     ism = foydalanuvchi.full_name
     username = f"@{foydalanuvchi.username}" if foydalanuvchi.username else "username yo'q"
     user_id = foydalanuvchi.id
@@ -91,25 +84,11 @@ async def xabar_qabul(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     logger.info("Yangi murojaat: %s (%s) — %s", ism, user_id, mavzu)
 
-    # Avtomatik bosh menyuga qaytish
     await update.message.reply_text(
         "✅ Murojaatingiz HR bo'limiga yuborildi! Tez orada javob berishadi. 🙏\n\n"
         "Yana murojaat qilmoqchimisiz? Mavzuni tanlang:",
         reply_markup=mavzu_keyboard(),
     )
-    return MAVZU
-
-
-async def bekor(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await update.message.reply_text(
-        "❌ Murojaat bekor qilindi.",
-        reply_markup=mavzu_keyboard(),
-    )
-    return MAVZU
-
-
-# ─── HR JAVOBI ───────────────────────────────────────────────────────────────
 
 async def javob_ber(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != HR_ID:
@@ -134,29 +113,16 @@ async def javob_ber(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Xatolik: {e}")
 
-
-# ─── MAIN ────────────────────────────────────────────────────────────────────
-
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    conv = ConversationHandler(
-        entry_points=[
-            CommandHandler("start", start),
-        ],
-        states={
-            MAVZU: [CallbackQueryHandler(mavzu_tanlandi, pattern="^(ish_haqi|hujjat|shikoyat|boshqa)$")],
-            XABAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, xabar_qabul)],
-        },
-        fallbacks=[CommandHandler("bekor", bekor)],
-    )
-
-    app.add_handler(conv)
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("javob", javob_ber))
+    app.add_handler(CallbackQueryHandler(mavzu_tanlandi, pattern="^mavzu_"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, xabar_qabul))
 
     logger.info("HR murojaat bot ishga tushdi ✅")
     app.run_polling(drop_pending_updates=True)
-
 
 if __name__ == "__main__":
     main()
