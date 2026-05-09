@@ -28,6 +28,11 @@ def mavzu_keyboard():
         for kalit, nom in MAVZULAR.items()
     ])
 
+async def xabar_yuborish(bot, chat_id, matn):
+    """Uzun xabarlarni bo'lib yuboradi"""
+    for i in range(0, len(matn), 4000):
+        await bot.send_message(chat_id=chat_id, text=matn[i:i+4000])
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
@@ -50,7 +55,6 @@ async def mavzu_tanlandi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def xabar_qabul(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Faqat mavzu tanlagan foydalanuvchilar uchun
     if not context.user_data.get("kutilmoqda"):
         await update.message.reply_text(
             "⚠️ Iltimos, avval mavzuni tanlang 👇",
@@ -66,52 +70,31 @@ async def xabar_qabul(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = f"@{foydalanuvchi.username}" if foydalanuvchi.username else "username yo'q"
     user_id = foydalanuvchi.id
 
-    hr_xabar = (
+    # HR ga sarlavha yuborish
+    sarlavha = (
         f"📬 *Yangi murojaat!*\n\n"
         f"👤 Ism: {ism}\n"
         f"🔗 Username: {username}\n"
         f"🆔 ID: `{user_id}`\n"
         f"📌 Mavzu: {mavzu}\n\n"
-        f"💬 *Xabar:*\n{matn}"
+        f"💬 *Xabar:*"
     )
-
     await context.bot.send_message(
         chat_id=HR_ID,
-        text=hr_xabar,
+        text=sarlavha,
         parse_mode="Markdown",
     )
+    # Xabarni bo'lib yuborish
+    await xabar_yuborish(context.bot, HR_ID, matn)
 
     context.user_data.clear()
     logger.info("Yangi murojaat: %s (%s) — %s", ism, user_id, mavzu)
 
-    # Xabar 4096 belgidan uzun bo'lsa bo'lib yuborish
-    if len(hr_xabar) <= 4096:
-        await context.bot.send_message(
-            chat_id=HR_ID,
-            text=hr_xabar,
-            parse_mode="Markdown",
-        )
-    else:
-        # Avval sarlavhani yuborish
-        sarlavha = (
-            f"📬 *Yangi murojaat!*\n\n"
-            f"👤 Ism: {ism}\n"
-            f"🔗 Username: {username}\n"
-            f"🆔 ID: `{user_id}`\n"
-            f"📌 Mavzu: {mavzu}\n\n"
-            f"💬 *Xabar:*"
-        )
-        await context.bot.send_message(
-            chat_id=HR_ID,
-            text=sarlavha,
-            parse_mode="Markdown",
-        )
-        # Xabarni 4000 belgidan bo'lib yuborish
-        for i in range(0, len(matn), 4000):
-            await context.bot.send_message(
-                chat_id=HR_ID,
-                text=matn[i:i+4000],
-            )
+    await update.message.reply_text(
+        "✅ Murojaatingiz HR bo'limiga yuborildi! Tez orada javob berishadi. 🙏\n\n"
+        "Yana murojaat qilmoqchimisiz? Mavzuni tanlang:",
+        reply_markup=mavzu_keyboard(),
+    )
 
 async def javob_ber(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != HR_ID:
@@ -138,12 +121,10 @@ async def javob_ber(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("javob", javob_ber))
     app.add_handler(CallbackQueryHandler(mavzu_tanlandi, pattern="^mavzu_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, xabar_qabul))
-
     logger.info("HR murojaat bot ishga tushdi ✅")
     app.run_polling(drop_pending_updates=True)
 
